@@ -1,0 +1,249 @@
+--Platform specifications
+hdfs version
+Lscpu
+hdfs dfsadmin -report
+
+--unzip the folder downloaded from kaggle and secure copy them to linux server
+scp -C C:/Users/jiazh/Downloads/flightprices/itineraries.csv amach3@144.24.53.159:/tmp
+scp C:/Users/jiazh/Downloads/airportcode/airports.csv amach3@144.24.53.159:/home/amach3
+
+--Make FlightData directory and put itineraries.csv file here
+hdfs dfs -mkdir FlightData
+hdfs dfs -put /tmp/itineraries.csv /user/amach3/FlightData/ 
+hdfs dfs -ls FlightData/ 
+
+--Make Airport directory and put Airport.csv file here
+hdfs dfs -mkdir Airport
+hdfs dfs -put airports.csv Airport/ 
+hdfs dfs -ls Airport/ 
+
+--make the directories public
+hdfs dfs -chmod -R go+rx /user/amach3/FlightData
+hdfs dfs -chmod -R go+rx /user/amach3/Airport
+
+-- How other team members access the directory
+hdfs dfs -ls /user/amach3/FlightData/
+hdfs dfs -ls /user/amach3/Airport/
+hdfs dfs -chmod -R go+rx /user/amach3/FlightData2
+
+
+--In Hive
+beeline
+use amach3;
+
+--Create Airport table
+DROP TABLE IF EXISTS Airport;
+
+CREATE EXTERNAL TABLE IF NOT EXISTS Airport
+(Name string, City string, Country string, IATA string, ICAO string,
+Latitude double, Longitude double)
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' 
+STORED AS TEXTFILE LOCATION '/user/amach3/Airport/'
+TBLPROPERTIES ('skip.header.line.count'='1');  
+
+SELECT * FROM Airport LIMIT 10;
+
+--Create FlightData table
+DROP TABLE IF EXISTS FlightData;
+
+CREATE EXTERNAL TABLE IF NOT EXISTS FlightData
+(FlightID string, SearchDate date, FlightDate date, StartingAirport string,
+DestinationAirport string, FareBasisCode string, TravelDuration string,
+ElapsedDays int, IsBasicEconomy boolean, IsRefundable boolean, 
+IsNonStop boolean, BaseFare double, TotalFare double, SeatsRemaining int,
+TotalTravelDistance int, SegmentsDepartureTimeEpochSeconds string,
+SegmentsDepartureTimeRaw string, SegmentsArrivalTimeEpochSeconds string,
+SegmentsArrivalTimeRaw string, SegmentsArrivalAirportCode string,
+SegmentsDepartureAirportCode string, SegmentsAirlineName string,
+SegmentsAirlineCode string, SegmentsEquipmentDescription string,
+SegmentsDurationInSeconds string, SegmentsDistance int, 
+SegmentsCabinCode string) 
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' 
+STORED AS TEXTFILE LOCATION '/user/amach3/FlightData/'
+TBLPROPERTIES ('skip.header.line.count'='1');  
+
+select count(*) from FlightData; --82138753 rows
+--10% is 8,000,000 rows
+
+
+CREATE EXTERNAL TABLE IF NOT EXISTS FlightData2
+(FlightID string, SearchDate date, FlightDate date, StartingAirport string,
+DestinationAirport string, FareBasisCode string, TravelDuration string,
+ElapsedDays int, IsBasicEconomy boolean, IsRefundable boolean, 
+IsNonStop boolean, BaseFare double, TotalFare double, SeatsRemaining int,
+TotalTravelDistance int, SegmentsDepartureTimeEpochSeconds string,
+SegmentsDepartureTimeRaw string, SegmentsArrivalTimeEpochSeconds string,
+SegmentsArrivalTimeRaw string, SegmentsArrivalAirportCode string,
+SegmentsDepartureAirportCode string, SegmentsAirlineName string,
+SegmentsAirlineCode string, SegmentsEquipmentDescription string,
+SegmentsDurationInSeconds string, SegmentsDistance int, 
+SegmentsCabinCode string) 
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' 
+STORED AS TEXTFILE LOCATION '/user/amach3/FlightData2/'
+TBLPROPERTIES ('skip.header.line.count'='1');  
+
+--Reduce our data size to 2 – 3 GB by sampling our data.
+INSERT OVERWRITE TABLE FlightData2
+select * from FlightData
+where rand() <= 0.1
+distribute by rand()
+sort by rand()
+limit 8000000;
+
+SELECT * FROM FlightData2 LIMIT 2;
+
+SELECT COUNT(*) from FlightData2;
+
+--rop unusable columns
+ALTER TABLE FlightData2 REPLACE COLUMNS (FlightID string, SearchDate date, FlightDate date, StartingAirport string,
+DestinationAirport string, FareBasisCode string, TravelDuration string,
+ElapsedDays int, IsBasicEconomy boolean, IsRefundable boolean, 
+IsNonStop boolean, BaseFare double, TotalFare double, SeatsRemaining int,
+TotalTravelDistance int, SegmentsAirlineName string, SegmentsEquipmentDescription string);
+
+--Remove any duplicate rows from FlightData2 table
+INSERT OVERWRITE TABLE  FlightData2
+SELECT DISTINCT * FROM FlightData2;
+
+SELECT COUNT(*) from FlightData2;
+
+--Remove null values
+INSERT OVERWRITE TABLE FlightData2
+SELECT * FROM FlightData2 WHERE TotalTravelDistance IS NOT NULL;
+
+INSERT OVERWRITE TABLE FlightData2
+SELECT * FROM FlightData2 WHERE FlightDate IS NOT NULL;
+
+INSERT OVERWRITE TABLE FlightData2
+SELECT * FROM FlightData2 WHERE StartingAirport IS NOT NULL;
+
+INSERT OVERWRITE TABLE FlightData2
+SELECT * FROM FlightData2 WHERE DestinationAirport IS NOT NULL;
+
+INSERT OVERWRITE TABLE FlightData2
+SELECT * FROM FlightData2 WHERE TravelDuration IS NOT NULL;
+
+INSERT OVERWRITE TABLE FlightData2
+SELECT * FROM FlightData2 WHERE IsBasicEconomy IS NOT NULL;
+
+INSERT OVERWRITE TABLE FlightData2
+SELECT * FROM FlightData2 WHERE IsNonStop IS NOT NULL;
+INSERT OVERWRITE TABLE FlightData2
+SELECT * FROM FlightData2 WHERE BaseFare IS NOT NULL;
+
+INSERT OVERWRITE TABLE FlightData2
+SELECT * FROM FlightData2 WHERE TotalFare IS NOT NULL;
+
+INSERT OVERWRITE TABLE FlightData2
+SELECT * FROM FlightData2 WHERE SeatsRemaining IS NOT NULL;
+
+INSERT OVERWRITE TABLE FlightData2
+SELECT * FROM FlightData2 WHERE SegmentsAirlineName IS NOT NULL;
+
+INSERT OVERWRITE TABLE FlightData2
+SELECT * FROM FlightData2 WHERE SegmentsEquipmentDescription IS NOT NULL;
+
+SELECT COUNT(*) from FlightData2;
+
+
+--Add FlightMonth column by getting the month from FlightDate column
+ALTER TABLE FlightData2 ADD COLUMNS (FlightMonth int);
+
+INSERT OVERWRITE TABLE FlightData2
+SELECT FlightID, SearchDate, FlightDate, StartingAirport,
+DestinationAirport, FareBasisCode string, TravelDuration,
+ElapsedDays, IsBasicEconomy, IsRefundable, 
+IsNonStop, BaseFare, TotalFare, SeatsRemaining,
+TotalTravelDistance, SegmentsAirlineName , SegmentsEquipmentDescription, 
+MONTH(FlightDate) AS FlightMonth FROM FlightData2;
+
+Select FlightDate, FlightMonth from FlightData2 LIMIT 10;
+
+--Add a Flight Route column that concatenate startingAirport with destinationAirport columns
+ALTER TABLE FlightData2 ADD COLUMNS (FlightRoute string);
+
+INSERT OVERWRITE TABLE FlightData2
+SELECT FlightID, SearchDate, FlightDate, StartingAirport,
+DestinationAirport, FareBasisCode string, TravelDuration,
+ElapsedDays, IsBasicEconomy, IsRefundable, 
+IsNonStop, BaseFare, TotalFare, SeatsRemaining,
+TotalTravelDistance, SegmentsAirlineName , SegmentsEquipmentDescription, FlightMonth, 
+CONCAT(StartingAirport, '-', DestinationAirport) AS FlightRoute
+FROM FlightData2;
+
+Select StartingAirport, DestinationAirport, FlightRoute From FlightData2 limit 10;
+
+--Top 10 most popular flight routes
+INSERT OVERWRITE DIRECTORY '/user/amach3/FlightData2/FlightRoute/'
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+SELECT FlightRoute, COUNT(FlightID) AS FlightCount
+FROM FlightData2
+GROUP BY FlightRoute
+ORDER BY FlightCount DESC
+LIMIT 10;
+
+hdfs dfs -get /user/amach3/FlightData2/FlightRoute/000000_0 FlightRoute.txt
+
+scp amach3@144.24.53.159:/home/amach3/FlightRoute.txt FlightRoute.txt
+
+-- Least 10 popular flight routes
+INSERT OVERWRITE DIRECTORY '/user/amach3/FlightData2/FlightPrice/'
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+SELECT FlightRoute, ROUND(AVG(TotalFare),2) AS FlightPrice
+FROM FlightData2
+GROUP BY FlightRoute
+ORDER BY FlightPrice DESC LIMIT 15;
+
+hdfs dfs -get /user/amach3/FlightData2/FlightPrice/000000_0 FlightPrice.txt
+
+scp amach3@144.24.53.159:/home/amach3/FlightPrice.txt FlightPrice.txt
+
+--Top 15 most expensive routes 
+INSERT OVERWRITE DIRECTORY '/user/amach3/FlightData2/FlightPrice/'
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+SELECT FlightRoute, ROUND(AVG(TotalFare),2) AS FlightPrice
+FROM FlightData2
+GROUP BY FlightRoute
+ORDER BY FlightPrice DESC LIMIT 15;
+
+hdfs dfs -get /user/amach3/FlightData2/FlightPrice/000000_0 FlightPrice.txt
+scp amach3@144.24.53.159:/home/amach3/FlightPrice.txt FlightPrice.txt
+
+--Airfare and Travel Distance over time 
+INSERT OVERWRITE DIRECTORY '/user/amach3/FlightData2/PriceDistanceOverTime/'
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+SELECT FlightMonth, ROUND(AVG(TotalFare),2) AS AverageAirfare, ROUND(AVG(TotalTravelDistance),2) AS AverageTravelDistance
+FROM FlightData2
+GROUP BY FlightMonth;
+
+hdfs dfs -get /user/amach3/FlightData2/PriceDistanceOverTime/000000_0 PriceDistanceOverTime.txt
+
+scp amach3@144.24.53.159:/home/amach3/PriceDistanceOverTime.txt PriceDistanceOverTime.txt
+
+--Which is the most popular destinations?
+INSERT OVERWRITE DIRECTORY '/user/amach3/FlightData2/Destination/'
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+SELECT DestinationAirport, Latitude, Longitude, COUNT(FlightID) AS FlightCount
+FROM FlightData2 F
+JOIN Airport A
+ON F.DestinationAirport = A.IATA
+GROUP BY DestinationAirport, Latitude, Longitude;
+
+hdfs dfs -get /user/amach3/FlightData2/PriceDistanceOverTime/000000_0
+hdfs dfs -get /user/amach3/FlightData2/PriceDistanceOverTime/000001_0
+hdfs dfs -get /user/amach3/FlightData2/PriceDistanceOverTime/000002_0
+hdfs dfs -get /user/amach3/FlightData2/PriceDistanceOverTime/000003_0
+
+cat 000000_0 000002_0 000003_0 000001_0 > PriceDistanceOverTime.txt
+scp amach3@144.24.53.159:/home/amach3/Destination.txt Destination.txt
+
+--Distribution of basic economy tickets
+INSERT OVERWRITE DIRECTORY '/user/amach3/FlightData2/BasicEconomy/'
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+SELECT isBasicEconomy, COUNT(*) as count
+FROM FlightData2
+GROUP BY isBasicEconomy;
+
+hdfs dfs -get /user/amach3/FlightData2/BasicEconomy/000000_0 BasicEconomy.txt
+
+scp amach3@144.24.53.159:/home/amach3/BasicEconomy.txt BasicEconomy.txt
