@@ -220,21 +220,32 @@ hdfs dfs -get /user/amach3/FlightData2/PriceDistanceOverTime/000000_0 PriceDista
 
 scp amach3@144.24.53.159:/home/amach3/PriceDistanceOverTime.txt PriceDistanceOverTime.txt
 
---Which is the most popular destinations?
+--Which is the most popular destinations over time?
 INSERT OVERWRITE DIRECTORY '/user/amach3/FlightData2/Destination/'
 ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
-SELECT DestinationAirport, Latitude, Longitude, COUNT(FlightID) AS FlightCount
+SELECT DestinationAirport, date_format(FlightDate,'MM-01-yyyy') AS formatted_date,
+Latitude, Longitude, COUNT(FlightID) AS FlightCount
 FROM FlightData2 F
 JOIN Airport A
 ON F.DestinationAirport = A.IATA
-GROUP BY DestinationAirport, Latitude, Longitude;
+GROUP BY DestinationAirport,date_format(FlightDate,'MM-01-yyyy'), Latitude, Longitude;
 
-hdfs dfs -get /user/amach3/FlightData2/PriceDistanceOverTime/000000_0
-hdfs dfs -get /user/amach3/FlightData2/PriceDistanceOverTime/000001_0
-hdfs dfs -get /user/amach3/FlightData2/PriceDistanceOverTime/000002_0
-hdfs dfs -get /user/amach3/FlightData2/PriceDistanceOverTime/000003_0
+hdfs dfs -get /user/amach3/FlightData2/Destination/000000_0
+hdfs dfs -get /user/amach3/FlightData2/Destination/000001_0
+hdfs dfs -get /user/amach3/FlightData2/Destination/000002_0
+hdfs dfs -get /user/amach3/FlightData2/Destination/000003_0
+hdfs dfs -get /user/amach3/FlightData2/Destination/000004_0
+hdfs dfs -get /user/amach3/FlightData2/Destination/000005_0
+hdfs dfs -get /user/amach3/FlightData2/Destination/000006_0
+hdfs dfs -get /user/amach3/FlightData2/Destination/000007_0
+hdfs dfs -get /user/amach3/FlightData2/Destination/000008_0
+hdfs dfs -get /user/amach3/FlightData2/Destination/000009_0
+hdfs dfs -get /user/amach3/FlightData2/Destination/000010_0
+hdfs dfs -get /user/amach3/FlightData2/Destination/000011_0
 
-cat 000000_0 000002_0 000003_0 000001_0 > PriceDistanceOverTime.txt
+cat 000000_0 000002_0 000003_0 000001_0 000004_0 000005_0 000006_0 000007_0 000008_0 000009_0 000010_0 000011_0 > Destination.txt
+
+
 scp amach3@144.24.53.159:/home/amach3/Destination.txt Destination.txt
 
 --Distribution of basic economy tickets
