@@ -94,7 +94,7 @@ SELECT * FROM FlightData2 LIMIT 2;
 
 SELECT COUNT(*) from FlightData2;
 
---rop unusable columns
+--drop unusable columns
 ALTER TABLE FlightData2 REPLACE COLUMNS (FlightID string, SearchDate date, FlightDate date, StartingAirport string,
 DestinationAirport string, FareBasisCode string, TravelDuration string,
 ElapsedDays int, IsBasicEconomy boolean, IsRefundable boolean, 
@@ -128,6 +128,7 @@ SELECT * FROM FlightData2 WHERE IsBasicEconomy IS NOT NULL;
 
 INSERT OVERWRITE TABLE FlightData2
 SELECT * FROM FlightData2 WHERE IsNonStop IS NOT NULL;
+
 INSERT OVERWRITE TABLE FlightData2
 SELECT * FROM FlightData2 WHERE BaseFare IS NOT NULL;
 
@@ -182,21 +183,26 @@ GROUP BY FlightRoute
 ORDER BY FlightCount DESC
 LIMIT 10;
 
+hdfs dfs -ls /user/amach3/FlightData2/FlightRoute
+
 hdfs dfs -get /user/amach3/FlightData2/FlightRoute/000000_0 FlightRoute.txt
 
 scp amach3@144.24.53.159:/home/amach3/FlightRoute.txt FlightRoute.txt
 
 -- Least 10 popular flight routes
-INSERT OVERWRITE DIRECTORY '/user/amach3/FlightData2/FlightPrice/'
+INSERT OVERWRITE DIRECTORY '/user/amach3/FlightData2/LeastPopularRoute/'
 ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
-SELECT FlightRoute, ROUND(AVG(TotalFare),2) AS FlightPrice
+SELECT FlightRoute, COUNT(FlightID) AS FlightCount
 FROM FlightData2
 GROUP BY FlightRoute
-ORDER BY FlightPrice DESC LIMIT 15;
+ORDER BY FlightCount ASC
+LIMIT 10;
 
-hdfs dfs -get /user/amach3/FlightData2/FlightPrice/000000_0 FlightPrice.txt
+hdfs dfs -ls /user/amach3/FlightData2/LeastPopularRoute
 
-scp amach3@144.24.53.159:/home/amach3/FlightPrice.txt FlightPrice.txt
+hdfs dfs -get /user/amach3/FlightData2/LeastPopularRoute/000000_0 LeastPopularRoute.txt
+
+scp amach3@144.24.53.159:/home/amach3/LeastPopularRoute.txt LeastPopularRoute.txt
 
 --Top 15 most expensive routes 
 INSERT OVERWRITE DIRECTORY '/user/amach3/FlightData2/FlightPrice/'
@@ -205,6 +211,8 @@ SELECT FlightRoute, ROUND(AVG(TotalFare),2) AS FlightPrice
 FROM FlightData2
 GROUP BY FlightRoute
 ORDER BY FlightPrice DESC LIMIT 15;
+
+hdfs dfs -ls /user/amach3/FlightData2/FlightPrice
 
 hdfs dfs -get /user/amach3/FlightData2/FlightPrice/000000_0 FlightPrice.txt
 scp amach3@144.24.53.159:/home/amach3/FlightPrice.txt FlightPrice.txt
@@ -216,7 +224,14 @@ SELECT FlightMonth, ROUND(AVG(TotalFare),2) AS AverageAirfare, ROUND(AVG(TotalTr
 FROM FlightData2
 GROUP BY FlightMonth;
 
-hdfs dfs -get /user/amach3/FlightData2/PriceDistanceOverTime/000000_0 PriceDistanceOverTime.txt
+hdfs dfs -ls /user/amach3/FlightData2/PriceDistanceOverTime
+
+hdfs dfs -get /user/amach3/FlightData2/PriceDistanceOverTime/000000_0
+hdfs dfs -get /user/amach3/FlightData2/PriceDistanceOverTime/000001_0
+hdfs dfs -get /user/amach3/FlightData2/PriceDistanceOverTime/000002_0
+hdfs dfs -get /user/amach3/FlightData2/PriceDistanceOverTime/000003_0
+
+cat 000000_0 000002_0 000003_0 000001_0 > PriceDistanceOverTime.txt
 
 scp amach3@144.24.53.159:/home/amach3/PriceDistanceOverTime.txt PriceDistanceOverTime.txt
 
@@ -245,7 +260,6 @@ hdfs dfs -get /user/amach3/FlightData2/Destination/000011_0
 
 cat 000000_0 000002_0 000003_0 000001_0 000004_0 000005_0 000006_0 000007_0 000008_0 000009_0 000010_0 000011_0 > Destination.txt
 
-
 scp amach3@144.24.53.159:/home/amach3/Destination.txt Destination.txt
 
 --Distribution of basic economy tickets
@@ -255,6 +269,11 @@ SELECT isBasicEconomy, COUNT(*) as count
 FROM FlightData2
 GROUP BY isBasicEconomy;
 
-hdfs dfs -get /user/amach3/FlightData2/BasicEconomy/000000_0 BasicEconomy.txt
+hdfs dfs -ls /user/amach3/FlightData2/BasicEconomy
+
+hdfs dfs -get /user/amach3/FlightData2/BasicEconomy/000000_0
+hdfs dfs -get /user/amach3/FlightData2/BasicEconomy/000001_0
+
+cat 000000_0 000001_0 > BasicEconomy.txt
 
 scp amach3@144.24.53.159:/home/amach3/BasicEconomy.txt BasicEconomy.txt
