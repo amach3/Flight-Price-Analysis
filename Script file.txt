@@ -235,6 +235,22 @@ cat 000000_0 000002_0 000003_0 000001_0 > PriceDistanceOverTime.txt
 
 scp amach3@144.24.53.159:/home/amach3/PriceDistanceOverTime.txt PriceDistanceOverTime.txt
 
+--Average Airfare by Days per Month
+INSERT OVERWRITE DIRECTORY '/user/amach3/FlightData2/Days/'
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+SELECT FlightDate, ROUND(AVG(TotalFare),2) AS AverageAirfare, ROUND(AVG(TotalTravelDistance),2) AS AverageTravelDistance
+FROM FlightData2
+GROUP BY FlightDate;
+
+hdfs dfs -ls /user/amach3/FlightData2/Days/
+
+hdfs dfs -get /user/amach3/FlightData2/Days/000000_0
+hdfs dfs -get /user/amach3/FlightData2/Days/000001_0
+
+cat 000000_0 000001_0 > Days.txt
+
+scp amach3@144.24.53.159:/home/amach3/Days.txt Days.txt
+
 --Which is the most popular destinations over time?
 INSERT OVERWRITE DIRECTORY '/user/amach3/FlightData2/Destination/'
 ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
